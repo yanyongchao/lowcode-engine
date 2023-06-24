@@ -1,4 +1,17 @@
-import yayJpg from '../assets/yay.jpg';
+import React from "react";
+import yayJpg from "../assets/yay.jpg";
+import { Form, onFormInit, onFormMount } from "@/packages/core";
+
+const form = new Form({
+  effects: () => {
+    onFormInit((form) => {
+      console.log("xxx---x", form);
+    });
+    onFormMount((form) => {
+      console.log("xxx---x", form);
+    });
+  },
+});
 
 export default function HomePage() {
   return (
@@ -7,9 +20,7 @@ export default function HomePage() {
       <p>
         <img src={yayJpg} width="388" />
       </p>
-      <p>
-        To get started, edit <code>pages/index.tsx</code> and save to reload.
-      </p>
+      <button onClick={() => form.notify("onFormMount")}>按钮</button>
     </div>
   );
 }

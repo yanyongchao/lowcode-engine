@@ -9,7 +9,13 @@
     "start": "npm run dev"
   },
   "dependencies": {
-    "umi": "^4.0.71"
+    "camel-case": "^4.1.2",
+    "lodash": "^4.17.21",
+    "lower-case": "^2.0.2",
+    "param-case": "^3.0.4",
+    "pascal-case": "^3.1.2",
+    "umi": "^4.0.71",
+    "upper-case": "^2.0.2"
   },
   "devDependencies": {
     "@types/react": "^18.0.33",

@@ -3,11 +3,23 @@ lockfileVersion: 5.3
 specifiers:
   '@types/react': ^18.0.33
   '@types/react-dom': ^18.0.11
+  camel-case: ^4.1.2
+  lodash: ^4.17.21
+  lower-case: ^2.0.2
+  param-case: ^3.0.4
+  pascal-case: ^3.1.2
   typescript: ^5.0.3
   umi: ^4.0.71
+  upper-case: ^2.0.2
 
 dependencies:
+  camel-case: 4.1.2
+  lodash: 4.17.21
+  lower-case: 2.0.2
+  param-case: 3.0.4
+  pascal-case: 3.1.2
   umi: 4.0.71_0ec2422e28666ba733610e861079c825
+  upper-case: 2.0.2
 
 devDependencies:
   '@types/react': 18.2.14
@@ -6585,6 +6597,12 @@ packages:
       browserslist: 4.21.9
       escalade: 3.1.1
       picocolors: 1.0.0
+    dev: false
+
+  /upper-case/2.0.2:
+    resolution: {integrity: sha512-KgdgDGJt2TpuwBUIjgG6lzw2GWFRCW9Qkfkiv0DxqHHLYJHmtmdUIKcZd8rHgFSjopVTlw6ggzCm1b8MFQwikg==}
+    dependencies:
+      tslib: 2.5.3
     dev: false
 
   /uri-js/4.4.1:
