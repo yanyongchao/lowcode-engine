@@ -1,76 +1,73 @@
-import { isArr, isObj, isStr } from "./checkers";
+import { isArr, isObj, isStr } from './checkers'
 
-type EachArrayIterator<T> = (currentValue: T, key: number) => void | boolean;
-type EachStringIterator = (currentValue: string, key: number) => void | boolean;
+type EachArrayIterator<T> = (currentValue: T, key: number) => void | boolean
+type EachStringIterator = (currentValue: string, key: number) => void | boolean
 type EachObjectIterator<T = any> = (
   currentValue: T,
   key: string
-) => void | boolean;
+) => void | boolean
 type MapArrayIterator<TItem, TResult> = (
   currentValue: TItem,
   key: number
-) => TResult;
-type MapStringIterator<TResult> = (
-  currentValue: string,
-  key: number
-) => TResult;
+) => TResult
+type MapStringIterator<TResult> = (currentValue: string, key: number) => TResult
 type MapObjectIterator<TItem, TResult> = (
   currentValue: TItem,
   key: string
-) => TResult;
+) => TResult
 type MemoArrayIterator<T, U> = (
   previousValue: U,
   currentValue: T,
   key: number
-) => U;
+) => U
 type MemoStringIterator<T> = (
   previousValue: T,
   currentValue: string,
   key: number
-) => T;
+) => T
 type MemoObjectIterator<TValue, TResult> = (
   previousValue: TResult,
   currentValue: TValue,
   key: string
-) => TResult;
+) => TResult
 
-export const toArr = (val: any): any[] => (isArr(val) ? val : val ? [val] : []);
+export const toArr = (val: any): any[] => (isArr(val) ? val : val ? [val] : [])
 export function each(
   val: string,
   iterator: EachStringIterator,
   revert?: boolean
-): void;
+): void
 export function each<T>(
   val: T[],
   iterator: EachArrayIterator<T>,
   revert?: boolean
-): void;
+): void
 export function each<T extends {}, TValue extends T[keyof T]>(
   val: T,
   iterator: EachObjectIterator<TValue>,
   revert?: boolean
-): void;
+): void
 export function each(val: any, iterator: any, revert?: boolean): void {
   if (isArr(val) || isStr(val)) {
     if (revert) {
       for (let i: number = val.length - 1; i >= 0; i--) {
         if (iterator(val[i], i) === false) {
-          return;
+          return
         }
       }
     } else {
       for (let i = 0; i < val.length; i++) {
         if (iterator(val[i], i) === false) {
-          return;
+          return
         }
       }
     }
   } else if (isObj(val)) {
-    let key: string;
+    let key: string
     for (key in val) {
       if (Object.hasOwnProperty.call(val, key)) {
         if (iterator(val[key], key) === false) {
-          return;
+          return
         }
       }
     }
@@ -81,32 +78,32 @@ export function map<T>(
   val: string,
   iterator: MapStringIterator<T>,
   revert?: boolean
-): T[];
+): T[]
 export function map<TItem, TResult>(
   val: TItem[],
   iterator: MapArrayIterator<TItem, TResult>,
   revert?: boolean
-): TResult[];
+): TResult[]
 export function map<T extends {}, TResult>(
   val: T,
   iterator: MapObjectIterator<T[keyof T], TResult>,
   revert?: boolean
-): Record<keyof T, TResult>;
+): Record<keyof T, TResult>
 export function map(val: any, iterator: any, revert?: any): any {
-  const res = isArr(val) || isStr(val) ? [] : {};
+  const res = isArr(val) || isStr(val) ? [] : {}
   each(
     val,
     (item, key) => {
-      const value = iterator(item, key);
+      const value = iterator(item, key)
       if (isArr(res)) {
-        (res as any).push(value);
+        ;(res as any).push(value)
       } else {
-        res[key] = value;
+        res[key] = value
       }
     },
     revert
-  );
-  return res;
+  )
+  return res
 }
 
 export function reduce<T, U>(
@@ -114,171 +111,171 @@ export function reduce<T, U>(
   iterator: MemoArrayIterator<T, U>,
   accumulator?: U,
   revert?: boolean
-): U;
+): U
 export function reduce<T>(
   val: string,
   iterator: MemoStringIterator<T>,
   accumulator?: T,
   revert?: boolean
-): T;
+): T
 export function reduce<T extends {}, TValue extends T[keyof T], TResult = any>(
   val: T,
   iterator: MemoObjectIterator<TValue, TResult>,
   accumulator?: TResult,
   revert?: boolean
-): TResult;
+): TResult
 export function reduce(
   val: any,
   iterator: any,
   accumulator?: any,
   revert?: boolean
 ): any {
-  let result = accumulator;
+  let result = accumulator
   each(
     val,
     (item, key) => {
-      result = iterator(result, item, key);
+      result = iterator(result, item, key)
     },
     revert
-  );
-  return result;
+  )
+  return result
 }
 
 export function every<T extends string>(
   val: T,
   iterator: EachStringIterator,
   revert?: boolean
-): boolean;
+): boolean
 export function every<T>(
   val: T[],
   iterator: EachArrayIterator<T>,
   revert?: boolean
-): boolean;
-export function every<T extends {}, TValue extends T[keyof T]>(
+): boolean
+export function every<T extends {}>(
   val: T,
   iterator: EachObjectIterator,
   revert?: boolean
-): boolean;
+): boolean
 export function every(val: any, iterator: any, revert?: boolean): boolean {
-  let res = true;
+  let res = true
   each(
     val,
     (item, key) => {
       if (!iterator(item, key)) {
-        res = false;
-        return false;
+        res = false
+        return false
       }
     },
     revert
-  );
-  return res;
+  )
+  return res
 }
 
 export function some<T extends string>(
   val: T,
   iterator: EachStringIterator,
   revert?: boolean
-): boolean;
+): boolean
 export function some<T>(
   val: T[],
   iterator: EachArrayIterator<T>,
   revert?: boolean
-): boolean;
-export function some<T extends {}, TValue extends T[keyof T]>(
+): boolean
+export function some<T extends {}>(
   val: T,
   iterator: EachObjectIterator,
   revert?: boolean
-): boolean;
+): boolean
 export function some(val: any, iterator: any, revert?: boolean): boolean {
-  let res = false;
+  let res = false
   each(
     val,
     (item, key) => {
       if (iterator(item, key)) {
-        res = true;
-        return false;
+        res = true
+        return false
       }
     },
     revert
-  );
-  return res;
+  )
+  return res
 }
 
 export function findIndex<T extends string>(
   val: T,
   iterator: EachStringIterator,
   revert?: boolean
-): number;
+): number
 export function findIndex<T>(
   val: T[],
   iterator: EachArrayIterator<T>,
   revert?: boolean
-): number;
-export function findIndex<T extends {}, TValue extends T[keyof T]>(
+): number
+export function findIndex<T extends {}>(
   val: T,
   iterator: EachObjectIterator,
   revert?: boolean
-): keyof T;
+): keyof T
 export function findIndex(
   val: any,
   iterator: any,
   revert?: boolean
 ): string | number {
-  let res: number | string = -1;
+  let res: number | string = -1
   each(
     val,
     (item, key) => {
       if (iterator(item, key)) {
-        res = key;
-        return false;
+        res = key
+        return false
       }
     },
     revert
-  );
-  return res;
+  )
+  return res
 }
 
 export function find<T extends string>(
   val: T,
   iterator: EachStringIterator,
   revert?: boolean
-): any;
+): any
 export function find<T>(
   val: T[],
   iterator: EachArrayIterator<T>,
   revert?: boolean
-): T;
-export function find<T extends {}, TValue extends T[keyof T]>(
+): T
+export function find<T extends {}>(
   val: T,
   iterator: EachObjectIterator,
   revert?: boolean
-): T[keyof T];
+): T[keyof T]
 export function find(val: any, iterator: any, revert?: boolean): any {
-  let res: any;
+  let res: any
   each(
     val,
     (item, key) => {
       if (iterator(item, key)) {
-        res = item;
-        return false;
+        res = item
+        return false
       }
     },
     revert
-  );
-  return res;
+  )
+  return res
 }
 
 export function includes<T extends string>(
   val: T,
   searchElement: string,
   revert?: boolean
-): boolean;
+): boolean
 export function includes<T>(
   val: T[],
   searchElement: T,
   revert?: boolean
-): boolean;
+): boolean
 export function includes(val: any, searchElement: any, revert?: boolean) {
-  if (isStr(val)) return val.includes(searchElement);
-  return some(val, (item) => item === searchElement, revert);
+  if (isStr(val)) return val.includes(searchElement)
+  return some(val, (item) => item === searchElement, revert)
 }

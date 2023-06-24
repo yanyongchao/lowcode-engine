@@ -35,6 +35,7 @@ export type DotOperatorNode = {
 export type WildcardOperatorNode = {
   type: 'WildcardOperator'
   filter?: GroupExpressionNode | RangeExpressionNode
+  optional?: boolean
 } & INode
 
 export type ExpandOperatorNode = {
@@ -75,7 +76,7 @@ export type ArrayPatternNode = {
   elements: ObjectPatternNode[] | ArrayPatternNode[] | IdentifierNode[]
 } & INode
 
-export type DestrcutorRule = {
+export type DestructorRule = {
   key?: string | number
   path?: Array<number | string>
 }
@@ -92,22 +93,9 @@ export type Pattern =
   | MatcherFunction
   | RegExp
 
-export type DestrcutorRules = DestrcutorRule[]
+export type DestructorRules = DestructorRule[]
 
 export type Segments = Array<string | number>
-
-export type KeyType = string | number | symbol
-
-export type IAccessors = {
-  get?: (source: any, key: KeyType) => any
-  set?: (source: any, key: KeyType, value: any) => any
-  has?: (source: any, key: KeyType) => boolean
-  delete?: (source: any, key: KeyType) => any
-}
-
-export type IRegistry = {
-  accessors?: IAccessors
-}
 
 export const isType =
   <T>(type: string) =>
@@ -142,3 +130,16 @@ export const isObjectPatternProperty = isType<ObjectPatternPropertyNode>(
 )
 
 export const isArrayPattern = isType<ArrayPatternNode>('ArrayPattern')
+
+export type KeyType = string | number | symbol
+
+export type IAccessors = {
+  get?: (source: any, key: KeyType) => any
+  set?: (source: any, key: KeyType, value: any) => any
+  has?: (source: any, key: KeyType) => boolean
+  delete?: (source: any, key: KeyType) => any
+}
+
+export type IRegistry = {
+  accessors?: IAccessors
+}

@@ -11,7 +11,6 @@ export const createEffectHook = <
   callback?: F
 ) => {
   return (...args: Parameters<ReturnType<F>>) => {
-    console.log("args", args);
     if (GlobalState.effectStart) {
       GlobalState.lifecycles.push(
         new LifeCycle(type, (payload, ctx) => {

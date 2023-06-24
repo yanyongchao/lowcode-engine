@@ -8,14 +8,26 @@ import {
   existInByDestructor,
 } from "./destructor";
 import type { Segments, Node, Pattern } from "./types";
-import { LRUMap } from "./lru";
 import { Matcher } from "./matcher";
 
-const pathCache = new LRUMap(10000);
+const pathCache = new Map();
 
 const isMatcher = Symbol("PATH_MATCHER");
 
 const isValid = (val: any) => val !== undefined && val !== null;
+
+const isSimplePath = (val: string) =>
+  val.indexOf("*") === -1 &&
+  val.indexOf("~") === -1 &&
+  val.indexOf("[") === -1 &&
+  val.indexOf("]") === -1 &&
+  val.indexOf(",") === -1 &&
+  val.indexOf(":") === -1 &&
+  val.indexOf(" ") === -1 &&
+  val[0] !== ".";
+
+const isAssignable = (val: any) =>
+  typeof val === "object" || typeof val === "function";
 
 const isNumberIndex = (val: any) =>
   isStr(val) ? /^\d+$/.test(val) : isNum(val);
@@ -25,12 +37,7 @@ const getIn = (segments: Segments, source: any) => {
     const index = segments[i];
     const rules = getDestructor(index as string);
     if (!rules) {
-      if (!isValid(source)) {
-        if (i !== segments.length - 1) {
-          return source;
-        }
-        break;
-      }
+      if (!isValid(source)) return;
       source = source[index];
     } else {
       source = getInByDestructor(source, rules, { setIn, getIn });
@@ -45,12 +52,13 @@ const setIn = (segments: Segments, source: any, value: any) => {
     const index = segments[i];
     const rules = getDestructor(index as string);
     if (!rules) {
-      if (!isValid(source)) return;
+      if (!isValid(source) || !isAssignable(source)) return;
       if (isArr(source) && !isNumberIndex(index)) {
         return;
       }
       if (!isValid(source[index])) {
-        if (!isValid(value)) {
+        if (value === undefined) {
+          if (source[index] === null) source[index] = value;
           return;
         }
         if (i < segments.length - 1) {
@@ -78,7 +86,7 @@ const deleteIn = (segments: Segments, source: any) => {
         return;
       }
 
-      if (!isValid(source)) return;
+      if (!isValid(source) || !isAssignable(source)) return;
       source = source[index];
       if (!isObj(source)) {
         return;
@@ -108,7 +116,7 @@ const existIn = (segments: Segments, source: any, start: number | Path) => {
         return hasOwnProperty.call(source, index);
       }
 
-      if (!isValid(source)) return false;
+      if (!isValid(source) || !isAssignable(source)) return false;
       source = source[index];
 
       if (!isObj(source)) {
@@ -131,13 +139,14 @@ const parse = (pattern: Pattern, base?: Pattern) => {
       entire: pattern.entire,
       segments: pattern.segments.slice(),
       isRegExp: false,
+      haveRelativePattern: pattern.haveRelativePattern,
       isWildMatchPattern: pattern.isWildMatchPattern,
       isMatchPattern: pattern.isMatchPattern,
       haveExcludePattern: pattern.haveExcludePattern,
       tree: pattern.tree,
     };
   } else if (isStr(pattern)) {
-    if (!pattern)
+    if (!pattern) {
       return {
         entire: "",
         segments: [],
@@ -146,6 +155,17 @@ const parse = (pattern: Pattern, base?: Pattern) => {
         haveExcludePattern: false,
         isMatchPattern: false,
       };
+    }
+    if (isSimplePath(pattern)) {
+      return {
+        entire: pattern,
+        segments: pattern.split("."),
+        isRegExp: false,
+        isWildMatchPattern: false,
+        haveExcludePattern: false,
+        isMatchPattern: false,
+      };
+    }
     const parser = new Parser(pattern, Path.parse(base));
     const tree = parser.parse();
     if (!parser.isMatchPattern) {
@@ -155,6 +175,7 @@ const parse = (pattern: Pattern, base?: Pattern) => {
         segments,
         tree,
         isRegExp: false,
+        haveRelativePattern: parser.haveRelativePattern,
         isWildMatchPattern: false,
         haveExcludePattern: false,
         isMatchPattern: false,
@@ -164,6 +185,7 @@ const parse = (pattern: Pattern, base?: Pattern) => {
         entire: pattern,
         segments: [],
         isRegExp: false,
+        haveRelativePattern: false,
         isWildMatchPattern: parser.isWildMatchPattern,
         haveExcludePattern: parser.haveExcludePattern,
         isMatchPattern: true,
@@ -179,6 +201,7 @@ const parse = (pattern: Pattern, base?: Pattern) => {
         return buf.concat(parseString(key));
       }, []),
       isRegExp: false,
+      haveRelativePattern: false,
       isWildMatchPattern: false,
       haveExcludePattern: false,
       isMatchPattern: false,
@@ -188,6 +211,7 @@ const parse = (pattern: Pattern, base?: Pattern) => {
       entire: pattern,
       segments: [],
       isRegExp: true,
+      haveRelativePattern: false,
       isWildMatchPattern: false,
       haveExcludePattern: false,
       isMatchPattern: true,
@@ -197,6 +221,7 @@ const parse = (pattern: Pattern, base?: Pattern) => {
       entire: "",
       isRegExp: false,
       segments: pattern !== undefined ? [pattern] : [],
+      haveRelativePattern: false,
       isWildMatchPattern: false,
       haveExcludePattern: false,
       isMatchPattern: false,
@@ -225,6 +250,7 @@ export class Path {
   public isMatchPattern: boolean;
   public isWildMatchPattern: boolean;
   public isRegExp: boolean;
+  public haveRelativePattern: boolean;
   public haveExcludePattern: boolean;
   public matchScore: number;
   public tree: Node;
@@ -239,17 +265,19 @@ export class Path {
       isRegExp,
       isMatchPattern,
       isWildMatchPattern,
+      haveRelativePattern,
       haveExcludePattern,
     } = parse(input, base);
     this.entire = entire;
     this.segments = segments;
     this.isMatchPattern = isMatchPattern;
     this.isWildMatchPattern = isWildMatchPattern;
+    this.haveRelativePattern = haveRelativePattern;
     this.isRegExp = isRegExp;
     this.haveExcludePattern = haveExcludePattern;
     this.tree = tree as Node;
-    this.matchCache = new LRUMap(200);
-    this.includesCache = new LRUMap(200);
+    this.matchCache = new Map();
+    this.includesCache = new Map();
   }
 
   toString() {
@@ -411,8 +439,6 @@ export class Path {
           score: 0,
         };
         const result = cacheWith(
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
           new Matcher(this.tree, record).match(path.segments)
         );
         this.matchScore = record.score;
@@ -487,15 +513,12 @@ export class Path {
   }
 
   static isPathPattern(target: any): target is Pattern {
-    if (
+    return !!(
       isStr(target) ||
       isArr(target) ||
       isRegExp(target) ||
       (isFn(target) && target[isMatcher])
-    ) {
-      return true;
-    }
-    return false;
+    );
   }
 
   static transform<T>(
