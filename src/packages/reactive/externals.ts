@@ -8,7 +8,13 @@ import {
   isPlainObj,
   isArr,
 } from './checkers'
-import { ProxyRaw, MakeObservableSymbol } from './environment'
+import {
+  ProxyRaw,
+  MakeObModelSymbol,
+  DependencyCollected,
+  ObModelSymbol,
+} from './environment'
+import { getDataNode } from './tree'
 import { Annotation } from './types'
 
 const RAW_TYPE = Symbol('RAW_TYPE')
@@ -16,11 +22,11 @@ const OBSERVABLE_TYPE = Symbol('OBSERVABLE_TYPE')
 const hasOwnProperty = Object.prototype.hasOwnProperty
 
 export const isObservable = (target: any) => {
-  return ProxyRaw.has(target)
+  return ProxyRaw.has(target) || !!target?.[ObModelSymbol]
 }
 
 export const isAnnotation = (target: any): target is Annotation => {
-  return target && !!target[MakeObservableSymbol]
+  return target && !!target[MakeObModelSymbol]
 }
 
 export const isSupportObservable = (target: any) => {
@@ -75,57 +81,60 @@ export const markObservable = <T>(target: T): T => {
   return target
 }
 
-export const raw = <T>(target: T): T => ProxyRaw.get(target as any)
+export const raw = <T>(target: T): T => {
+  if (target?.[ObModelSymbol]) return target[ObModelSymbol]
+  return ProxyRaw.get(target as any) || target
+}
 
 export const toJS = <T>(values: T): T => {
   const visited = new WeakSet<any>()
-  const tojs: typeof toJS = (values: any) => {
+  const _toJS: typeof toJS = (values: any) => {
+    if (visited.has(values)) {
+      return values
+    }
+    if (values && values[RAW_TYPE]) return values
     if (isArr(values)) {
-      if (visited.has(values)) {
-        return values
+      if (isObservable(values)) {
+        visited.add(values)
+        const res: any = []
+        values.forEach((item: any) => {
+          res.push(_toJS(item))
+        })
+        visited.delete(values)
+        return res
       }
-      const originValues = values
-      if (ProxyRaw.has(values as any)) {
-        values = ProxyRaw.get(values as any)
-      }
-      visited.add(originValues)
-      const res: any = []
-      values.forEach((item: any) => {
-        res.push(tojs(item))
-      })
-      return res
     } else if (isPlainObj(values)) {
-      if (visited.has(values)) {
-        return values
-      }
-      const originValues = values
-      if (ProxyRaw.has(values as any)) {
-        values = ProxyRaw.get(values as any)
-      }
-      if ('$$typeof' in values && '_owner' in values) {
-        return values
-      } else if (values['_isAMomentObject']) {
-        return values
-      } else if (values['_isJSONSchemaObject']) {
-        return values
-      } else if (isFn(values['toJS'])) {
-        return values['toJS']()
-      } else if (isFn(values['toJSON'])) {
-        return values['toJSON']()
-      } else {
-        visited.add(originValues)
+      if (isObservable(values)) {
+        visited.add(values)
         const res: any = {}
         for (const key in values) {
           if (hasOwnProperty.call(values, key)) {
-            res[key] = tojs(values[key])
+            res[key] = _toJS(values[key])
           }
         }
+        visited.delete(values)
         return res
       }
-    } else {
-      return values
     }
+    return values
   }
 
-  return tojs(values)
+  return _toJS(values)
+}
+
+export const contains = (target: any, property: any) => {
+  const targetRaw = raw(target)
+  const propertyRaw = raw(property)
+  if (targetRaw === propertyRaw) return true
+  const targetNode = getDataNode(targetRaw)
+  const propertyNode = getDataNode(propertyRaw)
+  if (!targetNode) return false
+  if (!propertyNode) return false
+  return targetNode.contains(propertyNode)
+}
+
+export const hasCollected = (callback?: () => void) => {
+  DependencyCollected.value = false
+  callback?.()
+  return DependencyCollected.value
 }

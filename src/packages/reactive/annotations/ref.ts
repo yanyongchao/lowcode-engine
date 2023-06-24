@@ -1,6 +1,6 @@
-import { ProxyRaw, RawProxy } from '../environment'
+import { ObModelSymbol } from '../environment'
 import { createAnnotation } from '../internals'
-import { buildDataTree } from '../datatree'
+import { buildDataTree } from '../tree'
 import {
   bindTargetKeyWithCurrentReaction,
   runReactionsFromTargetKey,
@@ -19,11 +19,6 @@ export const ref: IRef = createAnnotation(({ target, key, value }) => {
 
   const context = target ? target : store
   const property = target ? key : 'value'
-
-  buildDataTree(target, key, store)
-
-  ProxyRaw.set(proxy, store)
-  RawProxy.set(store, proxy)
 
   function get() {
     bindTargetKeyWithCurrentReaction({
@@ -52,7 +47,6 @@ export const ref: IRef = createAnnotation(({ target, key, value }) => {
       get,
       set,
       enumerable: true,
-      configurable: false,
     })
     return target
   } else {
@@ -60,6 +54,8 @@ export const ref: IRef = createAnnotation(({ target, key, value }) => {
       set,
       get,
     })
+    buildDataTree(target, key, store)
+    proxy[ObModelSymbol] = store
   }
   return proxy
 })

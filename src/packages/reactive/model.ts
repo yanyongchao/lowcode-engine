@@ -1,11 +1,11 @@
 import { isFn } from './checkers'
-import { buildDataTree } from './datatree'
+import { buildDataTree } from './tree'
 import { observable } from './observable'
 import { getObservableMaker } from './internals'
 import { isObservable, isAnnotation, isSupportObservable } from './externals'
 import { Annotations } from './types'
-import { batch } from './batch'
-import { ProxyRaw, RawProxy } from './environment'
+import { action } from './action'
+import { ObModelSymbol } from './environment'
 
 export function define<Target extends object = any>(
   target: Target,
@@ -13,9 +13,8 @@ export function define<Target extends object = any>(
 ): Target {
   if (isObservable(target)) return target
   if (!isSupportObservable(target)) return target
+  target[ObModelSymbol] = target
   buildDataTree(undefined, undefined, target)
-  ProxyRaw.set(target, target)
-  RawProxy.set(target, target)
   for (const key in annotations) {
     const annotation = annotations[key]
     if (isAnnotation(annotation)) {
@@ -34,7 +33,7 @@ export function model<Target extends object = any>(target: Target): Target {
     if (descriptor && descriptor.get) {
       buf[key] = observable.computed
     } else if (isFn(target[key])) {
-      buf[key] = batch
+      buf[key] = action
     } else {
       buf[key] = observable
     }

@@ -1,4 +1,6 @@
-export * from './datatree'
+import { ArraySet } from './array'
+
+export * from './tree'
 
 export type PropertyKey = string | number | symbol
 
@@ -66,8 +68,8 @@ export type Reaction = ((...args: any[]) => any) & {
   _context?: any
   _disposed?: boolean
   _property?: PropertyKey
-  _computesSet?: Set<Reaction>
-  _reactionsSet?: Set<ReactionsMap>
+  _computesSet?: ArraySet<Reaction>
+  _reactionsSet?: ArraySet<ReactionsMap>
   _scheduler?: (reaction: Reaction) => void
   _memos?: {
     queue: IMemoQueueItem[]
@@ -79,7 +81,7 @@ export type Reaction = ((...args: any[]) => any) & {
   }
 }
 
-export type ReactionsMap = Map<PropertyKey, Set<Reaction>>
+export type ReactionsMap = Map<PropertyKey, ArraySet<Reaction>>
 
 export interface IReactionOptions<T> {
   name?: string
@@ -102,4 +104,8 @@ export interface IBoundable {
 export interface IAction extends IBoundable {
   <T>(callback?: () => T): T //原地action
   scope?: (<T>(callback?: () => T) => T) & IBoundable //原地局部action
+}
+
+export interface IBatch extends IAction {
+  endpoint?: (callback?: () => void) => void
 }

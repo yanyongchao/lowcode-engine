@@ -1,19 +1,24 @@
-import { ProxyRaw, RawNode } from './environment'
-import { ObservablePath, PropertyKey, IOperation } from './types'
-import { concat } from './concat'
-
+import { ObModelSymbol, ObModelNodeSymbol, RawNode } from './environment'
+import { raw as getRaw } from './externals'
+import { PropertyKey, IOperation } from './types'
 export class DataChange {
-  path: ObservablePath
+  node: DataNode
   key: PropertyKey
+  object: object
   type: string
   value: any
   oldValue: any
   constructor(operation: IOperation, node: DataNode) {
+    this.node = node
     this.key = operation.key
     this.type = operation.type
+    this.object = operation.target
     this.value = operation.value
     this.oldValue = operation.oldValue
-    this.path = concat(node.path, operation.key)
+  }
+
+  get path() {
+    return this.node.path.concat(this.key)
   }
 }
 export class DataNode {
@@ -31,16 +36,16 @@ export class DataNode {
 
   get path() {
     if (!this.parent) return this.key ? [this.key] : []
-    return concat(this.parent.path, this.key)
+    return this.parent.path.concat(this.key)
   }
 
   get targetRaw() {
-    return ProxyRaw.get(this.target) || this.target
+    return getRaw(this.target)
   }
 
   get parent() {
     if (!this.target) return
-    return RawNode.get(this.targetRaw)
+    return getDataNode(this.targetRaw)
   }
 
   isEqual(node: DataNode) {
@@ -61,8 +66,24 @@ export class DataNode {
   }
 }
 
+export const getDataNode = (raw: any) => {
+  if (raw?.[ObModelNodeSymbol]) {
+    return raw[ObModelNodeSymbol]
+  }
+  return RawNode.get(raw)
+}
+
+export const setDataNode = (raw: any, node: DataNode) => {
+  if (raw?.[ObModelSymbol]) {
+    raw[ObModelNodeSymbol] = node
+    return
+  }
+  RawNode.set(raw, node)
+}
+
 export const buildDataTree = (target: any, key: PropertyKey, value: any) => {
-  const currentNode = RawNode.get(ProxyRaw.get(value) || value)
+  const raw = getRaw(value)
+  const currentNode = getDataNode(raw)
   if (currentNode) return currentNode
-  RawNode.set(value, new DataNode(target, key, value))
+  setDataNode(raw, new DataNode(target, key, value))
 }

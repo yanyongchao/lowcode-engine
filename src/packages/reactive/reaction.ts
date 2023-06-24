@@ -1,8 +1,11 @@
 import { isFn } from './checkers'
+import { ArraySet } from './array'
 import { IOperation, ReactionsMap, Reaction, PropertyKey } from './types'
 import {
   ReactionStack,
   PendingScopeReactions,
+  BatchEndpoints,
+  DependencyCollected,
   RawReactionsMap,
   PendingReactions,
   BatchCount,
@@ -24,11 +27,13 @@ const addRawReactionsMap = (
     if (reactions) {
       reactions.add(reaction)
     } else {
-      reactionsMap.set(key, new Set([reaction]))
+      reactionsMap.set(key, new ArraySet([reaction]))
     }
     return reactionsMap
   } else {
-    const reactionsMap: ReactionsMap = new Map([[key, new Set([reaction])]])
+    const reactionsMap: ReactionsMap = new Map([
+      [key, new ArraySet([reaction])],
+    ])
     RawReactionsMap.set(target, reactionsMap)
     return reactionsMap
   }
@@ -42,7 +47,7 @@ const addReactionsMapToReaction = (
   if (bindSet) {
     bindSet.add(reactionsMap)
   } else {
-    reaction._reactionsSet = new Set([reactionsMap])
+    reaction._reactionsSet = new ArraySet([reactionsMap])
   }
   return bindSet
 }
@@ -95,10 +100,12 @@ export const bindTargetKeyWithCurrentReaction = (operation: IOperation) => {
   if (type === 'iterate') {
     key = ITERATION_KEY
   }
-
-  const current = ReactionStack[ReactionStack.length - 1]
+  const reactionLen = ReactionStack.length
+  if (reactionLen === 0) return
+  const current = ReactionStack[reactionLen - 1]
   if (isUntracking()) return
   if (current) {
+    DependencyCollected.value = true
     addReactionsMapToReaction(current, addRawReactionsMap(target, key, current))
   }
 }
@@ -111,30 +118,15 @@ export const bindComputedReactions = (reaction: Reaction) => {
       if (computes) {
         computes.add(reaction)
       } else {
-        current._computesSet = new Set([reaction])
+        current._computesSet = new ArraySet([reaction])
       }
     }
   }
 }
 
-export const suspendComputedReactions = (reaction: Reaction) => {
-  const computes = reaction._computesSet
-  if (computes) {
-    computes.forEach((reaction) => {
-      const reactions = getReactionsFromTargetKey(
-        reaction._context,
-        reaction._property
-      )
-      if (reactions.length === 0) {
-        disposeBindingReactions(reaction)
-        reaction._dirty = true
-      }
-    })
-  }
-}
-
 export const runReactionsFromTargetKey = (operation: IOperation) => {
   let { key, type, target, oldTarget } = operation
+  batchStart()
   notifyObservers(operation)
   if (type === 'clear') {
     oldTarget.forEach((_: any, key: PropertyKey) => {
@@ -147,6 +139,7 @@ export const runReactionsFromTargetKey = (operation: IOperation) => {
     const newKey = Array.isArray(target) ? 'length' : ITERATION_KEY
     runReactions(target, newKey)
   }
+  batchEnd()
 }
 
 export const hasRunningReaction = () => {
@@ -154,18 +147,31 @@ export const hasRunningReaction = () => {
 }
 
 export const releaseBindingReactions = (reaction: Reaction) => {
-  const bindingSet = reaction._reactionsSet
-  if (bindingSet) {
-    bindingSet.forEach((reactionsMap) => {
-      reactionsMap.forEach((reactions) => {
-        reactions.delete(reaction)
-      })
+  reaction._reactionsSet?.forEach((reactionsMap) => {
+    reactionsMap.forEach((reactions) => {
+      reactions.delete(reaction)
     })
-  }
+  })
+  PendingReactions.delete(reaction)
+  PendingScopeReactions.delete(reaction)
   delete reaction._reactionsSet
 }
 
+export const suspendComputedReactions = (current: Reaction) => {
+  current._computesSet?.forEach((reaction) => {
+    const reactions = getReactionsFromTargetKey(
+      reaction._context,
+      reaction._property
+    )
+    if (reactions.length === 0) {
+      disposeBindingReactions(reaction)
+      reaction._dirty = true
+    }
+  })
+}
+
 export const disposeBindingReactions = (reaction: Reaction) => {
+  reaction._disposed = true
   releaseBindingReactions(reaction)
   suspendComputedReactions(reaction)
 }
@@ -180,6 +186,7 @@ export const batchEnd = () => {
     const prevUntrackCount = UntrackCount.value
     UntrackCount.value = 0
     executePendingReactions()
+    executeBatchEndpoints()
     UntrackCount.value = prevUntrackCount
   }
 }
@@ -192,8 +199,7 @@ export const batchScopeEnd = () => {
   const prevUntrackCount = UntrackCount.value
   BatchScope.value = false
   UntrackCount.value = 0
-  PendingScopeReactions.forEach((reaction) => {
-    PendingScopeReactions.delete(reaction)
+  PendingScopeReactions.batchDelete((reaction) => {
     if (isFn(reaction._scheduler)) {
       reaction._scheduler(reaction)
     } else {
@@ -218,8 +224,7 @@ export const isScopeBatching = () => BatchScope.value
 export const isUntracking = () => UntrackCount.value > 0
 
 export const executePendingReactions = () => {
-  PendingReactions.forEach((reaction) => {
-    PendingReactions.delete(reaction)
+  PendingReactions.batchDelete((reaction) => {
     if (isFn(reaction._scheduler)) {
       reaction._scheduler(reaction)
     } else {
@@ -228,10 +233,17 @@ export const executePendingReactions = () => {
   })
 }
 
+export const executeBatchEndpoints = () => {
+  BatchEndpoints.batchDelete((callback) => {
+    callback()
+  })
+}
+
 export const hasDepsChange = (newDeps: any[], oldDeps: any[]) => {
   if (newDeps === oldDeps) return false
   if (newDeps.length !== oldDeps.length) return true
-  return newDeps.some((value, index) => value !== oldDeps[index])
+  if (newDeps.some((value, index) => value !== oldDeps[index])) return true
+  return false
 }
 
 export const disposeEffects = (reaction: Reaction) => {

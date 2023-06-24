@@ -2,12 +2,11 @@ import { isFn, isCollectionType, isNormalType } from './checkers'
 import {
   RawProxy,
   ProxyRaw,
-  MakeObservableSymbol,
+  MakeObModelSymbol,
   RawShallowProxy,
-  RawNode,
 } from './environment'
 import { baseHandlers, collectionHandlers } from './handlers'
-import { buildDataTree } from './datatree'
+import { buildDataTree, getDataNode } from './tree'
 import { isSupportObservable } from './externals'
 import { PropertyKey, IVisitor, BoundaryFunction } from './types'
 
@@ -48,7 +47,8 @@ export const createObservable = (
   if (typeof value !== 'object') return value
   const raw = ProxyRaw.get(value)
   if (!!raw) {
-    const node = RawNode.get(raw)
+    const node = getDataNode(raw)
+    if (!node.target) node.target = target
     node.key = key
     return value
   }
@@ -75,17 +75,17 @@ export const createAnnotation = <T extends (visitor: IVisitor) => any>(
     return maker({ value: target })
   }
   if (isFn(maker)) {
-    annotation[MakeObservableSymbol] = maker
+    annotation[MakeObModelSymbol] = maker
   }
   return annotation
 }
 
 export const getObservableMaker = (target: any) => {
-  if (target[MakeObservableSymbol]) {
-    if (!target[MakeObservableSymbol][MakeObservableSymbol]) {
-      return target[MakeObservableSymbol]
+  if (target[MakeObModelSymbol]) {
+    if (!target[MakeObModelSymbol][MakeObModelSymbol]) {
+      return target[MakeObModelSymbol]
     }
-    return getObservableMaker(target[MakeObservableSymbol])
+    return getObservableMaker(target[MakeObModelSymbol])
   }
 }
 
@@ -95,15 +95,15 @@ export const createBoundaryFunction = (
 ) => {
   function boundary<F extends (...args: any) => any>(fn?: F): ReturnType<F> {
     let results: ReturnType<F>
-    start()
     try {
+      start()
       if (isFn(fn)) {
         results = fn()
       }
     } finally {
       end()
-      return results
     }
+    return results
   }
 
   boundary.bound = createBindFunction(boundary)
@@ -132,7 +132,7 @@ export const createBoundaryAnnotation = (
     target[key] = boundary.bound(target[key], target)
     return target
   })
-  boundary[MakeObservableSymbol] = annotation
-  boundary.bound[MakeObservableSymbol] = annotation
+  boundary[MakeObModelSymbol] = annotation
+  boundary.bound[MakeObModelSymbol] = annotation
   return boundary
 }
