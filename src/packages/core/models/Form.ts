@@ -7,6 +7,7 @@ import {
   IFormFields,
   IFormRequests,
   IFormMergeStrategy,
+  LifeCycleTypes,
 } from "../types";
 import { runEffects } from "../shared/effectbox";
 import {
@@ -52,6 +53,7 @@ export class Form<ValueType extends object = any> {
     this.makeObservable();
     this.makeReactive();
     this.makeValues();
+    this.onInit();
   }
 
   protected initialize(props: IFormProps<ValueType>) {
@@ -220,5 +222,12 @@ export class Form<ValueType extends object = any> {
 
   notify = (type: string, payload?: any) => {
     this.heart.publish(type, isValid(payload) ? payload : this);
+  };
+
+  /**事件钩子**/
+
+  onInit = () => {
+    this.initialized = true;
+    this.notify(LifeCycleTypes.ON_FORM_INIT);
   };
 }
