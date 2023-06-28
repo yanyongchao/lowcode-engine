@@ -8,15 +8,11 @@ import {
   IFormRequests,
   IFormMergeStrategy,
   LifeCycleTypes,
+  IFieldFactoryProps,
+  JSXComponent,
 } from "../types";
 import { runEffects } from "../shared/effectbox";
-import {
-  isValid,
-  uid,
-  FormPathPattern,
-  isPlainObj,
-  merge,
-} from "@/packages/shared";
+import { isValid, uid, isPlainObj, merge, FormPath } from "@/packages/shared";
 import {
   define,
   observable,
@@ -25,6 +21,7 @@ import {
   observe,
 } from "@/packages/reactive";
 import { getValidFormValues } from "../shared/internals";
+import { Field } from "./Field";
 
 export class Form<ValueType extends object = any> {
   displayName = "Form";
@@ -110,7 +107,7 @@ export class Form<ValueType extends object = any> {
       observe(
         this,
         (change) => {
-          console.log("changexxxxxxx[----", change);
+          // console.log("changexxxxxxx[----", change);
         },
         true
       )
@@ -203,6 +200,25 @@ export class Form<ValueType extends object = any> {
       this.pattern = "editable";
     }
   }
+
+  /** 创建字段 **/
+  createFeild = <
+    Decorator extends JSXComponent,
+    Component extends JSXComponent
+  >(
+    props: IFieldFactoryProps<Decorator, Component>
+  ): Field<Decorator, Component> => {
+    const address = FormPath.parse(props.basePath).concat(props.name);
+    const identifier = address.toString();
+    if (!identifier) return;
+    if (!this.fields[identifier] || this.props.designable) {
+      batch(() => {
+        new Field(address, props, this, this.props.designable);
+      });
+      this.notify(LifeCycleTypes.ON_FORM_GRAPH_CHANGE);
+    }
+    return this.fields[identifier] as any;
+  };
 
   /** 状态操作模型 **/
 
